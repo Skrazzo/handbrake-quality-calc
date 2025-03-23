@@ -50,8 +50,12 @@ export class VideoFile {
         if (videoStream) {
             // Get duration from video info
             const durationStr = videoStream.duration;
+            // If duration not found as main, then rely on tags
             if (durationStr) {
                 duration = round(parseFloat(durationStr) / 60, 4);
+            } else {
+                // Check duration from tags if not found in main info
+                duration = convertTimeToMinutes(videoStream.tags.DURATION) || 0;
             }
         }
 
