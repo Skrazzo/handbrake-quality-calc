@@ -7,7 +7,7 @@ export function log(...info: any[]): void {
     console.log(`[${currentDate}] `, ...info);
 }
 
-export function err(msg: string, err: Error | null) {
+export function err(msg: string, err: Error | null = null) {
     const currentDate = dayjs().format(DATE_FORMAT);
 
     if (err) {

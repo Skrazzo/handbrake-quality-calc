@@ -12,10 +12,12 @@
         "typescript": "^5"
     },
     "dependencies": {
+        "@types/handbrake-js": "^5.0.4",
         "dayjs": "^1.11.13",
         "ffprobe": "^1.1.2",
         "ffprobe-static": "^3.1.0",
         "handbrake": "^0.0.1",
+        "handbrake-js": "^7.1.0",
         "prettier": "^3.5.3"
     }
 }

@@ -4,6 +4,7 @@ import ffprobeStatic from "ffprobe-static";
 import { tryCatch } from "./tryCatch";
 import { err } from "./logs";
 import { convertTimeToMinutes } from "./converter";
+import { round } from "./round";
 
 interface VideoInfoReturn {
     path: string;
@@ -21,7 +22,7 @@ export class VideoFile {
 
     size(): number {
         const videoFile = Bun.file(this.path);
-        return videoFile.size / 1024 / 1024;
+        return round(videoFile.size / 1024 / 1024, 2);
     }
 
     async info(): Promise<VideoInfoReturn | undefined> {
@@ -44,9 +45,14 @@ export class VideoFile {
 
         // Get video duration from video stram
         const videoStream = probeInfo.streams.find((s) => s.codec_type === "video");
+
         let duration = 0;
         if (videoStream) {
-            duration = convertTimeToMinutes(videoStream.tags.DURATION) || 0;
+            // Get duration from video info
+            const durationStr = videoStream.duration;
+            if (durationStr) {
+                duration = round(parseFloat(durationStr) / 60, 4);
+            }
         }
 
         // Get size
@@ -56,7 +62,9 @@ export class VideoFile {
             path: this.path,
             size,
             duration,
-            mbMin: size / duration,
+            mbMin: round(size / duration, 2),
         };
     }
+
+    async transcode() {}
 }
