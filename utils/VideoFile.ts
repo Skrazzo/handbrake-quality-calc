@@ -25,6 +25,14 @@ export class VideoFile {
         return round(videoFile.size / 1024 / 1024, 2);
     }
 
+    async delete() {
+        const { data, error } = await tryCatch(Bun.file(this.path).delete());
+        if (error) {
+            err(`Error while deleting file: ${this.path}`, error);
+            process.exit(1);
+        }
+    }
+
     async info(): Promise<VideoInfoReturn | undefined> {
         const { data: probeInfo, error: probeErr } = await tryCatch<FFProbeResult>(
             ffprobe(this.path, {

@@ -9,38 +9,41 @@ const presetFile = path.join(__dirname, "preset.json");
 
 const originalVideoPath = "/Users/skrazzo/Downloads/handbrake/The.Electric.State.2025.REAL.1080p.WEB.h264-ETHEL.mkv";
 const video = new VideoFile(originalVideoPath);
-const output = new VideoFile(path.join(path.dirname(originalVideoPath), "tmp.mp4"));
+const output = new VideoFile(path.join(path.dirname(originalVideoPath), "The electric state 2025.mp4"));
 
 const HB = new Handbrake();
 await HB.init(video, output, {
     preset: presetFile,
-    seconds: 10,
+    seconds: 120,
+    range: { min: 10, max: 12 },
 });
-log(HB);
-process.exit();
+// await HB.findQuality();
 
-const videoInfo = await video.info();
-if (!videoInfo) {
-    err("Does the file exist?");
-    process.exit(1);
-}
+await HB.spawnTranscode({ all: false });
+log("Finished");
 
-log("Original file", videoInfo);
-
-const options: HandbrakeOptions = {
-    input: video.path,
-    output: output.path,
-    preset: "custom-preset",
-    "preset-import-file": presetFile,
-    "start-at": `seconds:${(videoInfo.duration * 60) / 2}`,
-    "stop-at": "seconds:30",
-};
-
-const { data: handbrakeInfo, error: handbrakeError } = await tryCatch(hb.run(options));
-
-if (handbrakeError) {
-    err("Handbrake error", handbrakeError);
-    process.exit(1);
-}
-
-log(await output.info());
+// const videoInfo = await video.info();
+// if (!videoInfo) {
+//     err("Does the file exist?");
+//     process.exit(1);
+// }
+//
+// log("Original file", videoInfo);
+//
+// const options: HandbrakeOptions = {
+//     input: video.path,
+//     output: output.path,
+//     preset: "custom-preset",
+//     "preset-import-file": presetFile,
+//     "start-at": `seconds:${(videoInfo.duration * 60) / 2}`,
+//     "stop-at": "seconds:30",
+// };
+//
+// const { data: handbrakeInfo, error: handbrakeError } = await tryCatch(hb.run(options));
+//
+// if (handbrakeError) {
+//     err("Handbrake error", handbrakeError);
+//     process.exit(1);
+// }
+//
+// log(await output.info());
