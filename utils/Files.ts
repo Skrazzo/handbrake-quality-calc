@@ -9,7 +9,7 @@ export function getDestinationFolderName(path: string): string {
     const parentName = basename(parentFolder);
 
     // Return either movie folder name, or season folder name with season folder number
-    if (seasonRegex.test(parentName)) {
+    if (seasonRegex.test(parentName) && parentName.length <= 10) {
         // Just a season folder
         // Breaking bad/S01
         return `${basename(dirname(parentFolder))}/${parentName}`;
@@ -37,6 +37,12 @@ function isMediaFile(filePath: string): boolean {
 
 export async function getMoviesFiles(path: string): Promise<string[]> {
     const files = new Set<string>([]);
+
+    // Incase only file is given
+    if (!(await isDir(path))) {
+        return [resolve(path)];
+    }
+
     const items = (await readdir(path)) as string[];
 
     for (const file of items) {

@@ -1,4 +1,5 @@
-import { resolve, normalize, join } from "node:path";
+import { resolve, normalize, join, dirname } from "node:path";
+import { stat } from "node:fs/promises";
 import ffprobe, { type FFProbeResult } from "ffprobe";
 import ffprobeStatic from "ffprobe-static";
 import { tryCatch } from "./tryCatch";
@@ -15,14 +16,25 @@ interface VideoInfoReturn {
 
 export class VideoFile {
     path: string;
+    dir: string;
 
     constructor(filePath: string) {
         this.path = resolve(normalize(filePath));
+        this.dir = dirname(this.path);
     }
 
     size(): number {
         const videoFile = Bun.file(this.path);
         return round(videoFile.size / 1024 / 1024, 2);
+    }
+
+    async exists(): Promise<boolean> {
+        try {
+            await stat(this.path);
+            return true;
+        } catch (_) {
+            return false;
+        }
     }
 
     async delete() {
