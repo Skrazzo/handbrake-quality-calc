@@ -1,22 +1,21 @@
-import { err, log } from "./utils/logs";
-import path, { basename, extname, join } from "path";
-import { type ProcessArguments, loadArguments } from "./utils/Arguments";
-import { resolve } from "path";
-import { readdir, mkdir } from "fs/promises";
+import { basename, extname, join } from "path";
+import { type InfoArguments, type ProcessArguments, loadArguments } from "./utils/Arguments";
+import { mkdir } from "fs/promises";
 import { getDestinationFolderName, getMoviesFiles } from "./utils/Files";
 import { VideoFile } from "./utils/VideoFile";
 import Handbrake from "./utils/Handbrake";
+import { CONVERT_TO, OUTPUT_DIR, PRESET_FILE, RANGE, SECONDS, SPLITS } from "./consts";
+import { logs } from "./utils/LogsClass";
+import { tryCatch } from "./utils/tryCatch";
 
 loadArguments();
 
-const presetFile = path.join(__dirname, "preset.json");
-
 export async function processFiles(args: ProcessArguments) {
     // Get output directory
-    const outputDir = Bun.env.OUTPUT_DIR;
+    const outputDir = OUTPUT_DIR;
     if (!outputDir) throw new Error("OUTPUT_DIR cannot be empty");
 
-    const convertExt = Bun.env.CONVERT_TO;
+    const convertExt = CONVERT_TO;
     if (!convertExt) throw new Error("CONVERT_TO cannot be empty");
 
     for (const path of args.files) {
@@ -24,22 +23,27 @@ export async function processFiles(args: ProcessArguments) {
         const files = await getMoviesFiles(path);
 
         // For faster quality lookups, save previous found quality factor
-        let previousQuality: number | undefined = undefined;
+        let previousQuality: number | undefined = args.quality;
 
         // Go through each file, get best quality, and transcode it
         for (const file of files) {
-            // TODO: Quality specify increments
-            // TODO: When testing files, take previous found quality
+            // TODO: Output dir from consts cannot be overwritten by arguments.... bad
+            // TODO: Delete detected tmp files, in case it didn't delete from previous run
+            // TODO: Specify default start quality in parameters
 
             // Define input and output file
             const inputFile = new VideoFile(file);
             const outputFile = new VideoFile(
-                join(outputDir, getDestinationFolderName(file), basename(file).replace(extname(file), convertExt))
+                join(
+                    outputDir,
+                    getDestinationFolderName(file),
+                    basename(file).replace(extname(file), convertExt)
+                )
             );
 
             // Check if output already exists. We skip unless overwrite enabled
             if ((await outputFile.exists()) && !args.overwrite) {
-                log(`Skipping file ${outputFile.path.replace(outputDir, "")}`);
+                logs.verbose(`Skipping file ${outputFile.path.replace(outputDir, "")}`);
                 continue;
             }
 
@@ -47,26 +51,26 @@ export async function processFiles(args: ProcessArguments) {
             try {
                 await mkdir(outputFile.dir, { recursive: true });
             } catch (error) {
-                err("Creating output directory", error as Error);
+                logs.err("Creating output directory", error as Error);
             }
 
-            log(`Input file: ${inputFile.path.replace(outputDir, "")}`);
-            log(`Output file: ${outputFile.path.replace(outputDir, "")}`);
+            logs.verbose(`Input file: ${inputFile.path.replace(outputDir, "")}`);
+            logs.verbose(`Output file: ${outputFile.path.replace(outputDir, "")}`);
 
             const hb = new Handbrake();
             await hb.init(inputFile, outputFile, {
-                preset: presetFile,
-                seconds: 30,
-                range: { min: 11, max: 14 },
+                preset: PRESET_FILE,
+                seconds: SECONDS,
+                range: RANGE,
+                splitPieces: SPLITS,
                 quality: previousQuality,
             });
 
             try {
-                log("Finding best quality factor");
+                logs.verbose("Finding best quality factor");
                 await hb.findQuality();
             } catch (error) {
-                err("While finding quality", error as Error);
-                log("NIGGANIGGA");
+                logs.err("While finding quality", error as Error);
             }
 
             // Set previous quality
@@ -76,23 +80,35 @@ export async function processFiles(args: ProcessArguments) {
             try {
                 await hb.spawnTranscode({});
             } catch (error) {
-                err(`Transcoding ${outputFile.path}`, error as Error);
+                logs.err(`Transcoding ${outputFile.path}`, error as Error);
             }
         }
     }
 }
 
-// const originalVideoPath = "/Users/skrazzo/Downloads/handbrake/The.Electric.State.2025.REAL.1080p.WEB.h264-ETHEL.mkv";
-// const video = new VideoFile(originalVideoPath);
-// const output = new VideoFile(path.join(path.dirname(originalVideoPath), "The electric state 2025.mp4"));
+export async function displayFileInfo(args: InfoArguments) {
+    for (const path of args.files) {
+        // Check if path is folder
+        const files = await getMoviesFiles(path);
 
-// const HB = new Handbrake();
-// await HB.init(video, output, {
-//     preset: presetFile,
-//     seconds: 120,
-//     range: { min: 10, max: 12 },
-// });
-// await HB.findQuality();
+        for (const file of files) {
+            const video = new VideoFile(file);
+            const { data: videoInfo, error } = await tryCatch(video.info());
 
-// await HB.spawnTranscode({ all: false });
-// log("Finished");
+            if (error) {
+                logs.err("Error while probing video file", error);
+                process.exit(1);
+            }
+
+            let shortenedPath = videoInfo.path.replace(path, "");
+            if (shortenedPath.trim() === "") shortenedPath = basename(videoInfo.path);
+
+            const logText = `${videoInfo.mbMin} MB/min -> ${shortenedPath}`;
+            if (videoInfo.mbMin > RANGE.max) {
+                logs.err(logText);
+            } else {
+                logs.info(logText);
+            }
+        }
+    }
+}

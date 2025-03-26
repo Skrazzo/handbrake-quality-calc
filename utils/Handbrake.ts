@@ -3,20 +3,29 @@ import { VideoFile } from "./VideoFile";
 import { resolve, normalize, join, dirname } from "node:path";
 import { readFileSync } from "node:fs";
 import { tryCatch } from "./tryCatch";
-import { err, log } from "./logs";
 import { basename } from "node:path/win32";
+import { logs } from "./LogsClass";
 import { randomUUIDv7 } from "bun";
+import calculateIncrement from "./CalculateQualityIncrement";
 
 interface HBClassOptions {
     preset: string;
     seconds: number;
     quality?: number | undefined;
     range: TargetMBRange;
+    splitPieces?: number; // Used for splitting file, and finding best mb/min
 }
 
 interface TargetMBRange {
     min: number;
     max: number;
+}
+
+interface TranscodeProps {
+    from: number;
+    seconds?: number;
+    output?: VideoFile;
+    input?: VideoFile;
 }
 
 export default class Handbrake {
@@ -28,6 +37,10 @@ export default class Handbrake {
     output: VideoFile;
     // @ts-ignore
     range: TargetMBRange;
+    // @ts-ignore
+    splitPieces: HBClassOptions["splitPieces"] = 3;
+    // @ts-ignore
+    seconds: number = 30;
     initiated: boolean = false;
 
     constructor() {}
@@ -38,7 +51,12 @@ export default class Handbrake {
     }
 
     // Function to initiate handbrake class, since constructor cannot be async
-    async init(video: VideoFile, output: VideoFile, options: HBClassOptions, customOptions: HandbrakeOptions = {}) {
+    async init(
+        video: VideoFile,
+        output: VideoFile,
+        options: HBClassOptions,
+        customOptions: HandbrakeOptions = {}
+    ) {
         // VideoFile
         this.input = video;
         this.output = output;
@@ -51,14 +69,16 @@ export default class Handbrake {
             throw new Error("Invalid preset file");
         }
 
-        // Get video video
-        const videoInfo = await video.info();
-        if (!videoInfo) {
-            throw new Error("Video info is undefined");
-        }
+        // set seconds to transcode
+        if (options.seconds) this.seconds = options.seconds;
 
         // Set range for wanted output video file
         this.range = options.range;
+
+        // set split pieces
+        if (options.splitPieces) {
+            this.splitPieces = options.splitPieces;
+        }
 
         // Get preset quality
         let presetQuality = 22; // Default quality (will be used if not set options.quality or preset quality)
@@ -75,8 +95,6 @@ export default class Handbrake {
             output: output.path,
             preset: preset.PresetList[0].PresetName,
             "preset-import-file": presetPath,
-            "start-at": `seconds:${(videoInfo.duration * 60) / 2}`,
-            "stop-at": `seconds:${options.seconds}`,
             quality: options.quality || presetQuality,
             ...customOptions,
         };
@@ -85,20 +103,30 @@ export default class Handbrake {
         this.initiated = true;
     }
 
-    async transcode(customOutput: VideoFile | null = null) {
+    async transcode({
+        from,
+        seconds = this.seconds,
+        input = this.input,
+        output = this.output,
+    }: TranscodeProps) {
         this.checkInit();
 
         const { data: handbrakeInfo, error: handbrakeError } = await tryCatch(
             hb.run({
                 ...this.options,
-                output: customOutput ? customOutput.path : this.options.output,
+                input: input.path,
+                output: output.path,
+                "start-at": `seconds:${Math.round(from)}`,
+                "stop-at": `seconds:${Math.round(seconds)}`,
             })
         );
 
         if (handbrakeError) {
-            err(`Error while transcoding ${this.options.input}`, handbrakeError);
+            logs.err(`Error while transcoding ${this.options.input}`, handbrakeError);
             process.exit(1);
         }
+
+        return await output.info();
     }
 
     async spawnTranscode({ all = false }): Promise<void> {
@@ -113,7 +141,10 @@ export default class Handbrake {
             const proc = hb.spawn(options);
 
             proc.on("error", (error) => {
-                err(`Error while transcoding: ${options?.input || "Empty path variable"}`, error);
+                logs.err(
+                    `Error while transcoding: ${options?.input || "Empty path variable"}`,
+                    error
+                );
                 reject(error);
             });
 
@@ -125,67 +156,84 @@ export default class Handbrake {
         });
     }
 
-    async findQuality() {
-        // Create tmp file for finding quality
-        const tmpFile = new VideoFile(join(dirname(this.input.path), `${randomUUIDv7()}-tmp.mp4`));
+    async findQuality(): Promise<HandbrakeOptions> {
+        this.checkInit();
 
-        // Do First encode, and check tmp info
-        log("Doing first encode with default options");
-        await this.transcode(tmpFile);
-
-        // This is used only for logging into console
-        let foundMBMin: number = 0;
-
-        while (true) {
-            const { data: info, error: infoError } = await tryCatch(tmpFile.info());
-
-            if (infoError || !info) {
-                err(`Error while getting info: ${info}`, infoError);
-                process.exit(1);
-            }
-
-            // Check if file needs to be re-encoded with different options quality
-            if (info.mbMin > this.range.min && info.mbMin < this.range.max) {
-                foundMBMin = info.mbMin;
-                break;
-            }
-
-            if (info.mbMin < this.range.min) {
-                // If needed ratio is lower than min range, we need to decrease quality (will make file bigger)
-                if (this.options.quality) {
-                    this.options.quality -= 1;
-                } else {
-                    err(
-                        "How did this happen? this.options.quality is undefined",
-                        Error(`this.options.quality is ${this.options.quality}`)
-                    );
-                    process.exit(1);
-                }
-            }
-
-            if (info.mbMin > this.range.max) {
-                // If needed ratio is higher, then we increase quality (will decrease file size)
-                if (this.options.quality) {
-                    this.options.quality += 1;
-                } else {
-                    err(
-                        "How did this happen? this.options.quality is undefined",
-                        Error(`this.options.quality is ${this.options.quality}`)
-                    );
-                    process.exit(1);
-                }
-            }
-
-            // Re-encode with new options
-            log(`Starting encode with quality: ${this.options.quality}`);
-            await this.transcode(tmpFile);
+        if (!this.splitPieces) {
+            throw new Error("Split pieces are empty, how tf did that happen?");
         }
 
-        log(`Found quality: ${this.options.quality} -> ${foundMBMin} MB/s`);
+        const tmpFiles = [];
+        for (let i = 0; i < this.splitPieces; i++) {
+            tmpFiles.push(new VideoFile(join(this.input.dir, `${randomUUIDv7()}-tmp.mp4`)));
+        }
 
-        // Delete temporary file
-        tmpFile.delete();
-        log(`Tmp ${tmpFile.path} file deleted`);
+        // Transcode parts
+        const originalInfo = await this.input.info();
+        if (!originalInfo) {
+            throw new Error("Original info is undefined");
+        }
+
+        const minutesStep = originalInfo.duration / (this.splitPieces + 1);
+        let allMBMin = 0; // Sum to get avg later
+
+        logs.verbose(`Trying to predict output MB/min with quality: ${this.options.quality}`);
+
+        for (let i = 0; i < tmpFiles.length; i++) {
+            const fromSeconds = Math.round(minutesStep * (i + 1)) * 60;
+
+            logs.verbose(`${i + 1} transcoding from ${fromSeconds} seconds`);
+            logs.verbose("transcoding", basename(tmpFiles[i].path));
+
+            const info = await this.transcode({
+                from: fromSeconds,
+                output: tmpFiles[i],
+            });
+
+            if (!info) {
+                throw new Error(`Could not get info from file ${this.output.path}`);
+            }
+
+            allMBMin += info.mbMin;
+            logs.verbose(`Output file ${info.mbMin} MB/min`);
+
+            await tmpFiles[i].delete();
+        }
+
+        const mbMinAvg = allMBMin / this.splitPieces;
+        logs.info(`${this.options.quality} quality average: ${mbMinAvg} MB/min`);
+
+        // Check for mbMinAvg, and compare it to the range
+        if (mbMinAvg > this.range.min && mbMinAvg < this.range.max) {
+            // Good range, return
+            return this.options;
+        }
+
+        // Too little, decrease quality (increase size)
+        if (mbMinAvg <= this.range.min) {
+            if (!this.options.quality)
+                throw new Error(
+                    `Quality is undefined ("${this.options.quality}") how tf did that happen?`
+                );
+
+            // this.options.quality -= 1;
+            this.options.quality += calculateIncrement(mbMinAvg, this.range.min);
+            // Recall yourself
+            return await this.findQuality();
+        }
+
+        // Too much, increase quality (decrease size)
+        if (mbMinAvg >= this.range.max) {
+            if (!this.options.quality)
+                throw new Error(
+                    `Quality is undefined ("${this.options.quality}") how tf did that happen?`
+                );
+
+            // this.options.quality += 1;
+            this.options.quality -= calculateIncrement(mbMinAvg, this.range.max);
+            // Recall yourself
+            return await this.findQuality();
+        }
 
         return this.options;
     }
