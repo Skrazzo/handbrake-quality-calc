@@ -216,8 +216,7 @@ export default class Handbrake {
                     `Quality is undefined ("${this.options.quality}") how tf did that happen?`
                 );
 
-            // this.options.quality -= 1;
-            this.options.quality += calculateIncrement(mbMinAvg, this.range.min);
+            this.options.quality -= calculateIncrement(mbMinAvg, this.range.min);
             // Recall yourself
             return await this.findQuality();
         }
@@ -229,8 +228,7 @@ export default class Handbrake {
                     `Quality is undefined ("${this.options.quality}") how tf did that happen?`
                 );
 
-            // this.options.quality += 1;
-            this.options.quality -= calculateIncrement(mbMinAvg, this.range.max);
+            this.options.quality += calculateIncrement(mbMinAvg, this.range.max);
             // Recall yourself
             return await this.findQuality();
         }

@@ -1,13 +1,13 @@
 import { join } from "path";
 
 // Transcoding options
-export const OUTPUT_DIR = "/Users/skrazzo/Desktop/transcode-output";
+export const OUTPUT_DIR = "C:\\Users\\Leons\\Desktop\\transcoded";
 export const CONVERT_TO = ".mp4";
 export const RANGE = {
     min: 9.5,
     max: 11,
 };
-export const PRESET_FILE = join(__dirname, "preset.json");
+export const PRESET_FILE = join(__dirname, "windows-preset.json");
 
 // Finding quality slider options
 
