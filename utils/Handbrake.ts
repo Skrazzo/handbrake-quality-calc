@@ -7,6 +7,7 @@ import { basename } from "node:path/win32";
 import { logs } from "./LogsClass";
 import { randomUUIDv7 } from "bun";
 import calculateIncrement from "./CalculateQualityIncrement";
+import { round } from "./round";
 
 interface HBClassOptions {
     preset: string;
@@ -14,6 +15,16 @@ interface HBClassOptions {
     quality?: number | undefined;
     range: TargetMBRange;
     splitPieces?: number; // Used for splitting file, and finding best mb/min
+    binary?: BinarySearch;
+}
+
+interface BinarySearch {
+    min: number;
+    max: number;
+    iterations: {
+        max: number;
+        current: number;
+    };
 }
 
 interface TargetMBRange {
@@ -41,6 +52,9 @@ export default class Handbrake {
     splitPieces: HBClassOptions["splitPieces"] = 3;
     // @ts-ignore
     seconds: number = 30;
+    // @ts-ignore
+    binary: HBClassOptions["binary"] = { min: 1, max: 100, iterations: { max: 20, current: 1 } };
+
     initiated: boolean = false;
 
     constructor() {}
@@ -79,6 +93,9 @@ export default class Handbrake {
         if (options.splitPieces) {
             this.splitPieces = options.splitPieces;
         }
+
+        // Split binary search start min and max
+        if (options.binary) this.binary = options.binary;
 
         // Get preset quality
         let presetQuality = 22; // Default quality (will be used if not set options.quality or preset quality)
@@ -159,82 +176,74 @@ export default class Handbrake {
     async findQuality(): Promise<HandbrakeOptions> {
         this.checkInit();
 
-        if (!this.splitPieces) {
-            throw new Error("Split pieces are empty, how tf did that happen?");
+        logs.info(`Performing binary search for: ${basename(this.input.path)}`);
+        if (!this.binary) throw new Error("Binary is undefined");
+
+        // Stop if max iterations reached
+        if (this.binary.iterations.current >= this.binary.iterations.max) {
+            logs.warn("Max iterations reached. Using current quality.");
+            return this.options;
+        }
+        this.binary.iterations.current++;
+
+        // Calculate midpoint quality
+        const midQuality = Math.round((this.binary.min + this.binary.max) / 2);
+        this.options.quality = midQuality;
+
+        // Test this quality by transcoding samples
+        const mbMinAvg = await this.testQualityWithSamples(midQuality);
+        logs.info(`Quality ${midQuality} → ${round(mbMinAvg, 3)} MB/min`);
+
+        // Check if we hit the target range
+        if (mbMinAvg >= this.range.min && mbMinAvg <= this.range.max) {
+            return this.options; // Success!
         }
 
-        const tmpFiles = [];
+        // Adjust binary search range
+        if (mbMinAvg > this.range.max) {
+            // File too big → lower quality (lower CQ = smaller file)
+            this.binary.max = midQuality - 1;
+        } else {
+            // File too small → higher quality (higher CQ = bigger file)
+            this.binary.min = midQuality + 1;
+        }
+
+        // Repeat with narrowed range
+        return this.findQuality();
+    }
+
+    // Helper: Test a specific quality by transcoding samples
+    private async testQualityWithSamples(quality: number): Promise<number> {
+        if (!this.splitPieces) throw new Error("Split pieces not set");
+
+        const tmpFiles: VideoFile[] = [];
         for (let i = 0; i < this.splitPieces; i++) {
             tmpFiles.push(new VideoFile(join(this.input.dir, `${randomUUIDv7()}-tmp.mp4`)));
         }
 
-        // Transcode parts
         const originalInfo = await this.input.info();
-        if (!originalInfo) {
-            throw new Error("Original info is undefined");
-        }
+        if (!originalInfo) throw new Error("Original video info missing");
 
         const minutesStep = originalInfo.duration / (this.splitPieces + 1);
-        let allMBMin = 0; // Sum to get avg later
+        let totalMBMin = 0;
 
-        logs.verbose(`Trying to predict output MB/min with quality: ${this.options.quality}`);
+        logs.verbose(`Transcoding ${this.splitPieces} splits with ${this.options.quality} quality`);
 
+        // Transcode each sample
         for (let i = 0; i < tmpFiles.length; i++) {
             const fromSeconds = Math.round(minutesStep * (i + 1)) * 60;
-
-            logs.verbose(`${i + 1} transcoding from ${fromSeconds} seconds`);
-            logs.verbose("transcoding", basename(tmpFiles[i].path));
-
             const info = await this.transcode({
                 from: fromSeconds,
                 output: tmpFiles[i],
             });
 
-            if (!info) {
-                throw new Error(`Could not get info from file ${this.output.path}`);
-            }
+            logs.verbose(`Split file ${info.mbMin} MB/sec`);
 
-            allMBMin += info.mbMin;
-            logs.verbose(`Output file ${info.mbMin} MB/min`);
-
+            if (!info) throw new Error(`Failed to transcode sample ${i}`);
+            totalMBMin += info.mbMin;
             await tmpFiles[i].delete();
         }
 
-        const mbMinAvg = allMBMin / this.splitPieces;
-        logs.info(`${this.options.quality} quality average: ${mbMinAvg} MB/min`);
-
-        // Check for mbMinAvg, and compare it to the range
-        if (mbMinAvg > this.range.min && mbMinAvg < this.range.max) {
-            // Good range, return
-            return this.options;
-        }
-
-        // Too little, decrease quality (increase size)
-        if (mbMinAvg <= this.range.min) {
-            if (!this.options.quality)
-                throw new Error(
-                    `Quality is undefined ("${this.options.quality}") how tf did that happen?`
-                );
-
-            // this.options.quality -= 1;
-            this.options.quality += calculateIncrement(mbMinAvg, this.range.min);
-            // Recall yourself
-            return await this.findQuality();
-        }
-
-        // Too much, increase quality (decrease size)
-        if (mbMinAvg >= this.range.max) {
-            if (!this.options.quality)
-                throw new Error(
-                    `Quality is undefined ("${this.options.quality}") how tf did that happen?`
-                );
-
-            // this.options.quality += 1;
-            this.options.quality -= calculateIncrement(mbMinAvg, this.range.max);
-            // Recall yourself
-            return await this.findQuality();
-        }
-
-        return this.options;
+        return totalMBMin / this.splitPieces; // Return average MB/min
     }
 }

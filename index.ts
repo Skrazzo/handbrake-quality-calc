@@ -4,7 +4,16 @@ import { mkdir } from "fs/promises";
 import { getDestinationFolderName, getMoviesFiles } from "./utils/Files";
 import { VideoFile } from "./utils/VideoFile";
 import Handbrake from "./utils/Handbrake";
-import { CONVERT_TO, OUTPUT_DIR, PRESET_FILE, RANGE, SECONDS, SPLITS } from "./consts";
+import {
+    BINARY_QUALITY_RANGE,
+    CONVERT_TO,
+    MAX_ITERATIONS,
+    OUTPUT_DIR,
+    PRESET_FILE,
+    RANGE,
+    SECONDS,
+    SPLITS,
+} from "./consts";
 import { logs } from "./utils/LogsClass";
 import { tryCatch } from "./utils/tryCatch";
 
@@ -29,7 +38,6 @@ export async function processFiles(args: ProcessArguments) {
         for (const file of files) {
             // TODO: Output dir from consts cannot be overwritten by arguments.... bad
             // TODO: Delete detected tmp files, in case it didn't delete from previous run
-            // TODO: Specify default start quality in parameters
 
             // Define input and output file
             const inputFile = new VideoFile(file);
@@ -63,7 +71,11 @@ export async function processFiles(args: ProcessArguments) {
                 seconds: SECONDS,
                 range: RANGE,
                 splitPieces: SPLITS,
-                quality: previousQuality,
+                binary: {
+                    min: BINARY_QUALITY_RANGE[0],
+                    max: BINARY_QUALITY_RANGE[1],
+                    iterations: { max: MAX_ITERATIONS, current: 1 },
+                },
             });
 
             try {

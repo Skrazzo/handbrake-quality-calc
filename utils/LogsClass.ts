@@ -36,6 +36,10 @@ class LogsClass {
     public verbose(...messages: any[]): void {
         this.baseLog("VERBOSE", GREEN, ...messages);
     }
+
+    public warn(...messages: any[]): void {
+        this.baseLog("WARN", YELLOW, ...messages);
+    }
 }
 
 export const logs = new LogsClass();
