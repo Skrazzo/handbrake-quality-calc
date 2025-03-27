@@ -9,19 +9,11 @@ export const RANGE = {
 };
 export const PRESET_FILE = join(__dirname, "windows-preset.json");
 
-// Finding quality slider options
-
-// Configurable thresholds and increments, easy to tweak, ya heard?
-// if diff > threshold = increment
-export const INCREMENT_CONFIG = [
-    { threshold: 10, increment: 10 },
-    { threshold: 5, increment: 7 },
-    { threshold: 3, increment: 5 },
-    { threshold: 1, increment: 3 },
-];
-export const DEFAULT_INCREMENT = 1; // Minimum jump is 1, always
-
 // When finding quality slider, this is how long video will be
 export const SECONDS = 10;
 // This is how many times video will be split and transcoded
 export const SPLITS = 10;
+
+// Binary search
+export const BINARY_QUALITY_RANGE = [1, 100];
+export const MAX_ITERATIONS = 8;
