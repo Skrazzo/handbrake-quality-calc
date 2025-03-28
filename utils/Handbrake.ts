@@ -219,7 +219,7 @@ export default class Handbrake {
 
             proc.on("complete", () => {
                 clearLine(); // Clear the final progress line
-                console.log("Transcoding complete. 🔥"); // Final message on a new line
+                logs.verbose("Transcoding complete. 🔥"); // Final message on a new line
                 resolve();
             });
 

@@ -48,7 +48,6 @@ export async function processFiles(args: ProcessArguments) {
         // Go through each file, get best quality, and transcode it
         for (const file of files) {
             // TODO: Output dir from consts cannot be overwritten by arguments.... bad
-            // TODO: Delete detected tmp files, in case it didn't delete from previous run
 
             // Define input and output file
             const inputFile = new VideoFile(file);
@@ -59,6 +58,21 @@ export async function processFiles(args: ProcessArguments) {
                     basename(file).replace(extname(file), convertExt)
                 )
             );
+
+            // Check for tmp file
+            const tmpFileRegex =
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-tmp\.mp4$/i;
+
+            if (tmpFileRegex.test(basename(inputFile.path))) {
+                const { error } = await tryCatch(inputFile.delete());
+                if (error) {
+                    logs.err("Deleting tmp file", error);
+                    process.exit(1);
+                }
+
+                logs.verbose("Deleted old tmp file");
+                continue;
+            }
 
             // Check if output already exists. We skip unless overwrite enabled
             if ((await outputFile.exists()) && !args.overwrite) {
@@ -73,8 +87,8 @@ export async function processFiles(args: ProcessArguments) {
                 logs.err("Creating output directory", error as Error);
             }
 
-            logs.verbose(`Input file: ${inputFile.path.replace(outputDir, "")}`);
-            logs.verbose(`Output file: ${outputFile.path.replace(outputDir, "")}`);
+            logs.info(`Input file: ${inputFile.path.replace(path, "")}`);
+            logs.info(`Output file: ${outputFile.path.replace(outputDir, "")}`);
 
             const hb = new Handbrake();
             await hb.init(inputFile, outputFile, {
