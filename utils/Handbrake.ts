@@ -97,6 +97,22 @@ export default class Handbrake {
         // Set range for wanted output video file
         this.range = options.range;
 
+        // Check files range if file is smaller than max, we need to reduce max and min range
+        const { data: info, error: fileInfoError } = await tryCatch(video.info());
+        if (fileInfoError) {
+            logs.err(`While getting info from ${video.path}`, fileInfoError);
+            process.exit(1);
+        }
+
+        // If file is smaller than range max, modify min and max range for transcoding
+        if (info.mbMin < this.range.max) {
+            this.range.max = info.mbMin;
+            this.range.min = this.range.max - 1;
+            logs.warn(
+                `${basename(video.path)} is ${info.mbMin} MB/min, less than range max MB/min. Reduced range to ${this.range.min} - ${this.range.max} MB/min`
+            );
+        }
+
         // set split pieces
         if (options.splitPieces) {
             this.splitPieces = options.splitPieces;
@@ -153,33 +169,6 @@ export default class Handbrake {
 
         return await output.info();
     }
-
-    // async spawnTranscode({ all = false }): Promise<void> {
-    //     const options = { ...this.options };
-    //
-    //     if (all) {
-    //         delete options["stop-at"];
-    //         delete options["start-at"];
-    //     }
-    //
-    //     await new Promise<void>((resolve, reject) => {
-    //         const proc = hb.spawn(options);
-    //
-    //         proc.on("error", (error) => {
-    //             logs.err(
-    //                 `Error while transcoding: ${options?.input || "Empty path variable"}`,
-    //                 error
-    //             );
-    //             reject(error);
-    //         });
-    //
-    //         proc.on("output", console.log);
-    //
-    //         proc.on("complete", () => {
-    //             resolve();
-    //         });
-    //     });
-    // }
 
     async spawnTranscode({ all = false }): Promise<void> {
         const options = { ...this.options };

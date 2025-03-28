@@ -103,11 +103,15 @@ export async function processFiles(args: ProcessArguments) {
                 },
             });
 
+            // Find best quality factor
             try {
-                logs.verbose("Finding best quality factor");
+                logs.verbose(
+                    `Finding best quality factor for ${hb.range.min} - ${hb.range.max} MB/min`
+                );
                 await hb.findQuality(previousQuality);
             } catch (error) {
                 logs.err("While finding quality", error as Error);
+                process.exit(1);
             }
 
             // Set previous quality
