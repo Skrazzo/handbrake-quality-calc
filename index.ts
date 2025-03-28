@@ -21,7 +21,7 @@ loadArguments();
 
 export async function processFiles(args: ProcessArguments) {
     // Get output directory
-    const outputDir = OUTPUT_DIR;
+    const outputDir = args.output;
     if (!outputDir) throw new Error("OUTPUT_DIR cannot be empty");
 
     const convertExt = CONVERT_TO;
@@ -33,11 +33,21 @@ export async function processFiles(args: ProcessArguments) {
 
         // For faster quality lookups, save previous found quality factor
         let previousQuality: number | undefined = args.quality;
+        if (previousQuality) {
+            if (
+                previousQuality < BINARY_QUALITY_RANGE[0] ||
+                previousQuality > BINARY_QUALITY_RANGE[1]
+            ) {
+                logs.err(
+                    `Quality needs to be in the range of ${BINARY_QUALITY_RANGE[0]} - ${BINARY_QUALITY_RANGE[1]}`
+                );
+                process.exit(1);
+            }
+        }
 
         // Go through each file, get best quality, and transcode it
         for (const file of files) {
             // TODO: Output dir from consts cannot be overwritten by arguments.... bad
-            // TODO: Delete detected tmp files, in case it didn't delete from previous run
 
             // Define input and output file
             const inputFile = new VideoFile(file);
@@ -48,6 +58,21 @@ export async function processFiles(args: ProcessArguments) {
                     basename(file).replace(extname(file), convertExt)
                 )
             );
+
+            // Check for tmp file
+            const tmpFileRegex =
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-tmp\.mp4$/i;
+
+            if (tmpFileRegex.test(basename(inputFile.path))) {
+                const { error } = await tryCatch(inputFile.delete());
+                if (error) {
+                    logs.err("Deleting tmp file", error);
+                    process.exit(1);
+                }
+
+                logs.verbose("Deleted old tmp file");
+                continue;
+            }
 
             // Check if output already exists. We skip unless overwrite enabled
             if ((await outputFile.exists()) && !args.overwrite) {
@@ -62,14 +87,14 @@ export async function processFiles(args: ProcessArguments) {
                 logs.err("Creating output directory", error as Error);
             }
 
-            logs.verbose(`Input file: ${inputFile.path.replace(outputDir, "")}`);
-            logs.verbose(`Output file: ${outputFile.path.replace(outputDir, "")}`);
+            logs.info(`Input file: ${inputFile.path.replace(path, "")}`);
+            logs.info(`Output file: ${outputFile.path.replace(outputDir, "")}`);
 
             const hb = new Handbrake();
             await hb.init(inputFile, outputFile, {
                 preset: PRESET_FILE,
                 seconds: SECONDS,
-                range: RANGE,
+                range: { ...RANGE }, // Copy variable fully, because otherwise it will be changed,
                 splitPieces: SPLITS,
                 binary: {
                     min: BINARY_QUALITY_RANGE[0],
@@ -78,11 +103,15 @@ export async function processFiles(args: ProcessArguments) {
                 },
             });
 
+            // Find best quality factor
             try {
-                logs.verbose("Finding best quality factor");
-                await hb.findQuality();
+                logs.verbose(
+                    `Finding best quality factor for ${hb.range.min} - ${hb.range.max} MB/min`
+                );
+                await hb.findQuality(previousQuality);
             } catch (error) {
                 logs.err("While finding quality", error as Error);
+                process.exit(1);
             }
 
             // Set previous quality

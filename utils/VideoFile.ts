@@ -67,11 +67,13 @@ export class VideoFile {
                 duration = round(parseFloat(durationStr) / 60, 4);
             } else {
                 // Check duration from tags if not found in main info
-                duration = convertTimeToMinutes(videoStream.tags.DURATION) || 0;
+                if (videoStream.tags) {
+                    duration = convertTimeToMinutes(videoStream.tags.DURATION) || 0;
+                }
             }
 
             // If duration is still 0, then try to take anything that says duration from tags
-            if (duration === 0) {
+            if (duration === 0 && videoStream.tags) {
                 const tagKeys = Object.keys(videoStream.tags);
                 const foundTag = tagKeys.find((k) => k.toLowerCase().includes("duration"));
 

@@ -1,4 +1,5 @@
 import dayjs from "dayjs";
+import { appendFile } from "fs/promises";
 
 // ANSI Color Codes - Keepin' it real 🎨
 const RESET = "\x1b[0m";
@@ -12,10 +13,21 @@ const PURPLE = "\x1b[35m"; // For verbal logs, cuz why not? 💜
 
 const DATE_FORMAT = "MM-DD HH:mm:ss";
 
+// Helper to remove ANSI color codes for file logging
+const stripAnsiCodes = (str: string): string =>
+    str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, "");
+
 class LogsClass {
+    logName = "app.log";
+
     private baseLog(level: string, color: string, ...messages: any[]): void {
         const currentDate = dayjs().format(DATE_FORMAT);
-        console.log(`${GRAY}[${currentDate}]${RESET} ${color}[${level}]${RESET}`, ...messages);
+
+        const logPrefix = `${GRAY}[${currentDate}]${RESET} ${color}[${level}]${RESET}`;
+        const logMessage = `${stripAnsiCodes(logPrefix)} ${messages.join(" ")}\n`;
+        appendFile(this.logName, logMessage);
+
+        console.log(logPrefix, ...messages);
     }
 
     public info(...info: any[]): void {
