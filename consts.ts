@@ -10,10 +10,10 @@ export const RANGE = {
 export const PRESET_FILE = join(__dirname, "preset.json");
 
 // When finding quality slider, this is how long video will be
-export const SECONDS = 10;
+export const SECONDS = 3;
 // This is how many times video will be split and transcoded
-export const SPLITS = 10;
+export const SPLITS = 15;
 
 // Binary search
-export const BINARY_QUALITY_RANGE = [1, 100];
+export const BINARY_QUALITY_RANGE = [40, 90];
 export const MAX_ITERATIONS = 8;

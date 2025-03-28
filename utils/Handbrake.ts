@@ -6,8 +6,8 @@ import { tryCatch } from "./tryCatch";
 import { basename } from "node:path/win32";
 import { logs } from "./LogsClass";
 import { randomUUIDv7 } from "bun";
-import calculateIncrement from "./CalculateQualityIncrement";
 import { round } from "./round";
+import { Writable } from "stream"; // Make sure to import this
 
 interface HBClassOptions {
     preset: string;
@@ -38,6 +38,14 @@ interface TranscodeProps {
     output?: VideoFile;
     input?: VideoFile;
 }
+
+// Helper to get terminal width, default to 80 if not available
+const getTerminalWidth = () => process.stdout.columns || 80;
+
+// Helper to clear the line
+const clearLine = (stream: Writable = process.stdout) => {
+    stream.write("\r" + " ".repeat(getTerminalWidth()) + "\r");
+};
 
 export default class Handbrake {
     // @ts-ignore // Need to ignore, because we dont use constructor
@@ -146,6 +154,33 @@ export default class Handbrake {
         return await output.info();
     }
 
+    // async spawnTranscode({ all = false }): Promise<void> {
+    //     const options = { ...this.options };
+    //
+    //     if (all) {
+    //         delete options["stop-at"];
+    //         delete options["start-at"];
+    //     }
+    //
+    //     await new Promise<void>((resolve, reject) => {
+    //         const proc = hb.spawn(options);
+    //
+    //         proc.on("error", (error) => {
+    //             logs.err(
+    //                 `Error while transcoding: ${options?.input || "Empty path variable"}`,
+    //                 error
+    //             );
+    //             reject(error);
+    //         });
+    //
+    //         proc.on("output", console.log);
+    //
+    //         proc.on("complete", () => {
+    //             resolve();
+    //         });
+    //     });
+    // }
+
     async spawnTranscode({ all = false }): Promise<void> {
         const options = { ...this.options };
 
@@ -156,8 +191,10 @@ export default class Handbrake {
 
         await new Promise<void>((resolve, reject) => {
             const proc = hb.spawn(options);
+            let lastOutput = ""; // Keep track of the last output
 
             proc.on("error", (error) => {
+                clearLine(); // Clear progress line before error
                 logs.err(
                     `Error while transcoding: ${options?.input || "Empty path variable"}`,
                     error
@@ -165,15 +202,37 @@ export default class Handbrake {
                 reject(error);
             });
 
-            proc.on("output", console.log);
+            proc.on("output", (output) => {
+                const outputStr = String(output).trimEnd(); // Clean up the output string
+
+                // Ignore empty lines or buffer messages if they cause issues
+                if (!outputStr || outputStr.startsWith("<Buffer")) {
+                    return;
+                }
+
+                // Calculate padding to clear the rest of the line
+                const padding = Math.max(0, getTerminalWidth() - outputStr.length);
+                // Write \r, the output, and padding spaces
+                process.stdout.write("\r" + outputStr + " ".repeat(padding));
+                lastOutput = outputStr; // Store for potential clearing later
+            });
 
             proc.on("complete", () => {
+                clearLine(); // Clear the final progress line
+                console.log("Transcoding complete. 🔥"); // Final message on a new line
                 resolve();
             });
+
+            // Handle process exit/close as well for cleanup
+            const cleanup = () => {
+                clearLine(); // Ensure line is clear if process exits unexpectedly
+            };
+            proc.on("complete", cleanup);
+            proc.on("end", cleanup);
         });
     }
 
-    async findQuality(): Promise<HandbrakeOptions> {
+    async findQuality(customStartQuality?: number | undefined): Promise<HandbrakeOptions> {
         this.checkInit();
 
         logs.info(`Performing binary search for: ${basename(this.input.path)}`);
@@ -188,11 +247,16 @@ export default class Handbrake {
 
         // Calculate midpoint quality
         const midQuality = Math.round((this.binary.min + this.binary.max) / 2);
-        this.options.quality = midQuality;
+        // set custom if available
+        if (customStartQuality) {
+            this.options.quality = customStartQuality;
+        } else {
+            this.options.quality = midQuality;
+        }
 
         // Test this quality by transcoding samples
-        const mbMinAvg = await this.testQualityWithSamples(midQuality);
-        logs.info(`Quality ${midQuality} → ${round(mbMinAvg, 3)} MB/min`);
+        const mbMinAvg = await this.testQualityWithSamples(this.options.quality);
+        logs.info(`Quality ${this.options.quality} → ${round(mbMinAvg, 3)} MB/min`);
 
         // Check if we hit the target range
         if (mbMinAvg >= this.range.min && mbMinAvg <= this.range.max) {
@@ -202,10 +266,10 @@ export default class Handbrake {
         // Adjust binary search range
         if (mbMinAvg > this.range.max) {
             // File too big → lower quality (lower CQ = smaller file)
-            this.binary.max = midQuality - 1;
+            this.binary.max = this.options.quality - 1;
         } else {
             // File too small → higher quality (higher CQ = bigger file)
-            this.binary.min = midQuality + 1;
+            this.binary.min = this.options.quality + 1;
         }
 
         // Repeat with narrowed range
@@ -237,7 +301,9 @@ export default class Handbrake {
                 output: tmpFiles[i],
             });
 
-            logs.verbose(`Split file ${info.mbMin} MB/sec`);
+            logs.verbose(
+                `[${i + 1}] Split file ${fromSeconds} - ${fromSeconds + this.seconds} seconds -> ${info.mbMin} MB/sec`
+            );
 
             if (!info) throw new Error(`Failed to transcode sample ${i}`);
             totalMBMin += info.mbMin;
