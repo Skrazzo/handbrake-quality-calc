@@ -21,7 +21,7 @@ loadArguments();
 
 export async function processFiles(args: ProcessArguments) {
     // Get output directory
-    const outputDir = OUTPUT_DIR;
+    const outputDir = args.output;
     if (!outputDir) throw new Error("OUTPUT_DIR cannot be empty");
 
     const convertExt = CONVERT_TO;
@@ -94,7 +94,7 @@ export async function processFiles(args: ProcessArguments) {
             await hb.init(inputFile, outputFile, {
                 preset: PRESET_FILE,
                 seconds: SECONDS,
-                range: RANGE,
+                range: { ...RANGE }, // Copy variable fully, because otherwise it will be changed,
                 splitPieces: SPLITS,
                 binary: {
                     min: BINARY_QUALITY_RANGE[0],

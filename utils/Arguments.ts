@@ -47,13 +47,13 @@ export function loadArguments() {
                         demandOption: true,
                     })
                     .option("overwrite", {
-                        alias: "o",
+                        alias: "O",
                         describe: "Overwrite existing files",
                         type: "boolean",
                         default: false,
                     })
                     .option("output", {
-                        alias: "O",
+                        alias: "o",
                         describe: "Set output dir for files",
                         type: "string",
                         default: OUTPUT_DIR,
