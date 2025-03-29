@@ -1,14 +1,18 @@
 import { basename, extname, join } from "path";
 import { type InfoArguments, type ProcessArguments, loadArguments } from "./utils/Arguments";
 import { mkdir } from "fs/promises";
-import { getDestinationFolderName, getMoviesFiles } from "./utils/Files";
+import {
+    fileExists,
+    getDestinationFolderName,
+    getMoviesFiles,
+    getSubtitlesFiles,
+} from "./utils/Files";
 import { VideoFile } from "./utils/VideoFile";
 import Handbrake from "./utils/Handbrake";
 import {
     BINARY_QUALITY_RANGE,
     CONVERT_TO,
     MAX_ITERATIONS,
-    OUTPUT_DIR,
     PRESET_FILE,
     RANGE,
     SECONDS,
@@ -27,14 +31,13 @@ export async function processFiles(args: ProcessArguments) {
     const convertExt = CONVERT_TO;
     if (!convertExt) throw new Error("CONVERT_TO cannot be empty");
 
+    // Transcode media files
     for (const path of args.files) {
         // Check if path is folder
         const files = await getMoviesFiles(path);
 
         // Go through each file, get best quality, and transcode it
         for (const file of files) {
-            // TODO: Output dir from consts cannot be overwritten by arguments.... bad
-
             // Define input and output file
             const inputFile = new VideoFile(file);
             const outputFile = new VideoFile(
@@ -105,6 +108,28 @@ export async function processFiles(args: ProcessArguments) {
                 await hb.spawnTranscode({});
             } catch (error) {
                 logs.err(`Transcoding ${outputFile.path}`, error as Error);
+            }
+        }
+
+        // Go through each subtitle and copy it to the destination folder
+        const subtitles = await getSubtitlesFiles(path);
+        for (const sub of subtitles) {
+            const destinationPath = join(outputDir, getDestinationFolderName(sub), basename(sub));
+            // Do not overwrite subtitles, unless overwrite enabled
+            if ((await fileExists(sub)) && !args.overwrite) {
+                logs.verbose(`Skip copy of ${sub.replace(path, "")}`);
+                continue;
+            }
+
+            // Get subtitle file and copy it to destination folder
+            const subtitleFile = Bun.file(sub);
+            const { error: copyError } = await tryCatch(Bun.write(destinationPath, subtitleFile));
+
+            if (copyError) {
+                logs.err(`Error while copying ${sub} to ${destinationPath}`, copyError);
+                process.exit(1);
+            } else {
+                logs.verbose(`Copied ${sub.replace(path, "")} to destination folder`);
             }
         }
     }
