@@ -1,14 +1,18 @@
 import { basename, extname, join } from "path";
 import { type InfoArguments, type ProcessArguments, loadArguments } from "./utils/Arguments";
 import { mkdir } from "fs/promises";
-import { getDestinationFolderName, getMoviesFiles } from "./utils/Files";
+import {
+    fileExists,
+    getDestinationFolderName,
+    getMoviesFiles,
+    getSubtitlesFiles,
+} from "./utils/Files";
 import { VideoFile } from "./utils/VideoFile";
 import Handbrake from "./utils/Handbrake";
 import {
     BINARY_QUALITY_RANGE,
     CONVERT_TO,
     MAX_ITERATIONS,
-    OUTPUT_DIR,
     PRESET_FILE,
     RANGE,
     SECONDS,
@@ -27,28 +31,13 @@ export async function processFiles(args: ProcessArguments) {
     const convertExt = CONVERT_TO;
     if (!convertExt) throw new Error("CONVERT_TO cannot be empty");
 
+    // Transcode media files
     for (const path of args.files) {
         // Check if path is folder
         const files = await getMoviesFiles(path);
 
-        // For faster quality lookups, save previous found quality factor
-        let previousQuality: number | undefined = args.quality;
-        if (previousQuality) {
-            if (
-                previousQuality < BINARY_QUALITY_RANGE[0] ||
-                previousQuality > BINARY_QUALITY_RANGE[1]
-            ) {
-                logs.err(
-                    `Quality needs to be in the range of ${BINARY_QUALITY_RANGE[0]} - ${BINARY_QUALITY_RANGE[1]}`
-                );
-                process.exit(1);
-            }
-        }
-
         // Go through each file, get best quality, and transcode it
         for (const file of files) {
-            // TODO: Output dir from consts cannot be overwritten by arguments.... bad
-
             // Define input and output file
             const inputFile = new VideoFile(file);
             const outputFile = new VideoFile(
@@ -108,20 +97,39 @@ export async function processFiles(args: ProcessArguments) {
                 logs.verbose(
                     `Finding best quality factor for ${hb.range.min} - ${hb.range.max} MB/min`
                 );
-                await hb.findQuality(previousQuality);
+                await hb.findQuality();
             } catch (error) {
                 logs.err("While finding quality", error as Error);
                 process.exit(1);
             }
-
-            // Set previous quality
-            previousQuality = hb.options.quality;
 
             // After finding quality, encode video
             try {
                 await hb.spawnTranscode({});
             } catch (error) {
                 logs.err(`Transcoding ${outputFile.path}`, error as Error);
+            }
+        }
+
+        // Go through each subtitle and copy it to the destination folder
+        const subtitles = await getSubtitlesFiles(path);
+        for (const sub of subtitles) {
+            const destinationPath = join(outputDir, getDestinationFolderName(sub), basename(sub));
+            // Do not overwrite subtitles, unless overwrite enabled
+            if ((await fileExists(sub)) && !args.overwrite) {
+                logs.verbose(`Skip copy of ${sub.replace(path, "")}`);
+                continue;
+            }
+
+            // Get subtitle file and copy it to destination folder
+            const subtitleFile = Bun.file(sub);
+            const { error: copyError } = await tryCatch(Bun.write(destinationPath, subtitleFile));
+
+            if (copyError) {
+                logs.err(`Error while copying ${sub} to ${destinationPath}`, copyError);
+                process.exit(1);
+            } else {
+                logs.verbose(`Copied ${sub.replace(path, "")} to destination folder`);
             }
         }
     }
@@ -131,17 +139,25 @@ export async function displayFileInfo(args: InfoArguments) {
     for (const path of args.files) {
         // Check if path is folder
         const files = await getMoviesFiles(path);
+        let previousDir: string | undefined;
 
         for (const file of files) {
             const video = new VideoFile(file);
             const { data: videoInfo, error } = await tryCatch(video.info());
+
+            // For better readability notify about dir change
+            const shortenedDir = video.dir.replace(path, "");
+            if (previousDir !== shortenedDir) {
+                logs.verbose(!shortenedDir ? video.dir : shortenedDir);
+                previousDir = shortenedDir;
+            }
 
             if (error) {
                 logs.err("Error while probing video file", error);
                 process.exit(1);
             }
 
-            let shortenedPath = videoInfo.path.replace(path, "");
+            let shortenedPath = videoInfo.path.replace(video.dir, "");
             if (shortenedPath.trim() === "") shortenedPath = basename(videoInfo.path);
 
             const logText = `${videoInfo.mbMin} MB/min -> ${shortenedPath}`;

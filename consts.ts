@@ -17,3 +17,6 @@ export const SPLITS = 5;
 // Binary search
 export const BINARY_QUALITY_RANGE = [20, 40];
 export const MAX_ITERATIONS = 6;
+// For windows or mac it could be inverted
+// For example, if mb/min needs to go down, but it goes up, then its most likely inverted
+export const INVERTED_SEARCHING: boolean = false;

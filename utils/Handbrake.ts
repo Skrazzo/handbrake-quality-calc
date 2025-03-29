@@ -8,6 +8,7 @@ import { logs } from "./LogsClass";
 import { randomUUIDv7 } from "bun";
 import { round } from "./round";
 import { Writable } from "stream"; // Make sure to import this
+import { INVERTED_SEARCHING } from "../consts";
 
 interface HBClassOptions {
     preset: string;
@@ -152,7 +153,7 @@ export default class Handbrake {
     }: TranscodeProps) {
         this.checkInit();
 
-        const { data: handbrakeInfo, error: handbrakeError } = await tryCatch(
+        const { error: handbrakeError } = await tryCatch(
             hb.run({
                 ...this.options,
                 input: input.path,
@@ -221,7 +222,7 @@ export default class Handbrake {
         });
     }
 
-    async findQuality(customStartQuality?: number | undefined): Promise<HandbrakeOptions> {
+    async findQuality(): Promise<HandbrakeOptions> {
         this.checkInit();
 
         logs.info(`Performing binary search for: ${basename(this.input.path)}`);
@@ -236,12 +237,7 @@ export default class Handbrake {
 
         // Calculate midpoint quality
         const midQuality = Math.round((this.binary.min + this.binary.max) / 2);
-        // set custom if available
-        if (customStartQuality) {
-            this.options.quality = customStartQuality;
-        } else {
-            this.options.quality = midQuality;
-        }
+        this.options.quality = midQuality;
 
         // Test this quality by transcoding samples
         const mbMinAvg = await this.testQualityWithSamples(this.options.quality);
@@ -253,7 +249,7 @@ export default class Handbrake {
         }
 
         // Adjust binary search range
-        if (mbMinAvg > this.range.max) {
+        if (INVERTED_SEARCHING ? mbMinAvg > this.range.max : mbMinAvg < this.range.min) {
             // File too big → lower quality (lower CQ = smaller file)
             this.binary.max = this.options.quality - 1;
         } else {
