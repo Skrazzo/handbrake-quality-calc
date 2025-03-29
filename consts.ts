@@ -10,10 +10,14 @@ export const RANGE = {
 export const PRESET_FILE = join(__dirname, "preset.json");
 
 // When finding quality slider, this is how long video will be
-export const SECONDS = 3;
+export const SECONDS = 30;
 // This is how many times video will be split and transcoded
-export const SPLITS = 15;
+export const SPLITS = 5;
 
 // Binary search
-export const BINARY_QUALITY_RANGE = [20, 60];
+// export const BINARY_QUALITY_RANGE = [20, 60];
+export const BINARY_QUALITY_RANGE = [10, 60];
 export const MAX_ITERATIONS = 8;
+// For windows or mac it could be inverted
+// For example, if mb/min needs to go down, but it goes up, then its most likely inverted
+export const INVERTED_SEARCHING: boolean = true;

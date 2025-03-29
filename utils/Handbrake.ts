@@ -8,6 +8,7 @@ import { logs } from "./LogsClass";
 import { randomUUIDv7 } from "bun";
 import { round } from "./round";
 import { Writable } from "stream"; // Make sure to import this
+import { INVERTED_SEARCHING } from "../consts";
 
 interface HBClassOptions {
     preset: string;
@@ -152,7 +153,7 @@ export default class Handbrake {
     }: TranscodeProps) {
         this.checkInit();
 
-        const { data: handbrakeInfo, error: handbrakeError } = await tryCatch(
+        const { error: handbrakeError } = await tryCatch(
             hb.run({
                 ...this.options,
                 input: input.path,
@@ -248,7 +249,7 @@ export default class Handbrake {
         }
 
         // Adjust binary search range
-        if (mbMinAvg > this.range.max) {
+        if (INVERTED_SEARCHING ? mbMinAvg > this.range.max : mbMinAvg < this.range.min) {
             // File too big → lower quality (lower CQ = smaller file)
             this.binary.max = this.options.quality - 1;
         } else {
