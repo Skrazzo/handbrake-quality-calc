@@ -139,17 +139,25 @@ export async function displayFileInfo(args: InfoArguments) {
     for (const path of args.files) {
         // Check if path is folder
         const files = await getMoviesFiles(path);
+        let previousDir: string | undefined;
 
         for (const file of files) {
             const video = new VideoFile(file);
             const { data: videoInfo, error } = await tryCatch(video.info());
+
+            // For better readability notify about dir change
+            const shortenedDir = video.dir.replace(path, "");
+            if (previousDir !== shortenedDir) {
+                logs.verbose(!shortenedDir ? video.dir : shortenedDir);
+                previousDir = shortenedDir;
+            }
 
             if (error) {
                 logs.err("Error while probing video file", error);
                 process.exit(1);
             }
 
-            let shortenedPath = videoInfo.path.replace(path, "");
+            let shortenedPath = videoInfo.path.replace(video.dir, "");
             if (shortenedPath.trim() === "") shortenedPath = basename(videoInfo.path);
 
             const logText = `${videoInfo.mbMin} MB/min -> ${shortenedPath}`;
