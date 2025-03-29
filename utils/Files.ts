@@ -3,13 +3,14 @@ import { basename, dirname, extname, join, resolve } from "path";
 
 export function getDestinationFolderName(path: string): string {
     const seasonRegex = /(season|s).\d{1,3}/gim;
+    const extrasRegex = /(extra\w*|special\w*)/gim;
 
     const fullPath = resolve(path);
     const parentFolder = dirname(fullPath);
     const parentName = basename(parentFolder);
 
     // Return either movie folder name, or season folder name with season folder number
-    if (seasonRegex.test(parentName) && parentName.length <= 10) {
+    if ((seasonRegex.test(parentName) || extrasRegex.test(parentName)) && parentName.length <= 10) {
         // Just a season folder
         // Breaking bad/S01
         return `${basename(dirname(parentFolder))}/${parentName}`;
@@ -31,8 +32,25 @@ export async function isDir(path: string) {
 
 function isMediaFile(filePath: string): boolean {
     const ext = extname(filePath).toLowerCase();
-    const mediaExtensions = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".mp3", ".wav", ".flac", ".ogg", ".m4a"]; // Add more as needed
+    const mediaExtensions = [
+        ".mp4",
+        ".mkv",
+        ".avi",
+        ".mov",
+        ".wmv",
+        ".mp3",
+        ".wav",
+        ".flac",
+        ".ogg",
+        ".m4a",
+    ]; // Add more as needed
     return mediaExtensions.includes(ext);
+}
+
+export function isSubtitleFile(filePath: string): boolean {
+    const ext = extname(filePath).toLowerCase();
+    const subtitleExtensions = [".srt", ".sub", ".ass", ".vtt", ".ssa", ".idx"]; // Add more if you need 'em
+    return subtitleExtensions.includes(ext);
 }
 
 export async function getMoviesFiles(path: string): Promise<string[]> {

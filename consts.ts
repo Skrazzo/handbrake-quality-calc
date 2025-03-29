@@ -15,5 +15,5 @@ export const SECONDS = 3;
 export const SPLITS = 15;
 
 // Binary search
-export const BINARY_QUALITY_RANGE = [40, 90];
+export const BINARY_QUALITY_RANGE = [20, 60];
 export const MAX_ITERATIONS = 8;

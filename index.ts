@@ -31,20 +31,6 @@ export async function processFiles(args: ProcessArguments) {
         // Check if path is folder
         const files = await getMoviesFiles(path);
 
-        // For faster quality lookups, save previous found quality factor
-        let previousQuality: number | undefined = args.quality;
-        if (previousQuality) {
-            if (
-                previousQuality < BINARY_QUALITY_RANGE[0] ||
-                previousQuality > BINARY_QUALITY_RANGE[1]
-            ) {
-                logs.err(
-                    `Quality needs to be in the range of ${BINARY_QUALITY_RANGE[0]} - ${BINARY_QUALITY_RANGE[1]}`
-                );
-                process.exit(1);
-            }
-        }
-
         // Go through each file, get best quality, and transcode it
         for (const file of files) {
             // TODO: Output dir from consts cannot be overwritten by arguments.... bad
@@ -108,14 +94,11 @@ export async function processFiles(args: ProcessArguments) {
                 logs.verbose(
                     `Finding best quality factor for ${hb.range.min} - ${hb.range.max} MB/min`
                 );
-                await hb.findQuality(previousQuality);
+                await hb.findQuality();
             } catch (error) {
                 logs.err("While finding quality", error as Error);
                 process.exit(1);
             }
-
-            // Set previous quality
-            previousQuality = hb.options.quality;
 
             // After finding quality, encode video
             try {

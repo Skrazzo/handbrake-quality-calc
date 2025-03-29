@@ -221,7 +221,7 @@ export default class Handbrake {
         });
     }
 
-    async findQuality(customStartQuality?: number | undefined): Promise<HandbrakeOptions> {
+    async findQuality(): Promise<HandbrakeOptions> {
         this.checkInit();
 
         logs.info(`Performing binary search for: ${basename(this.input.path)}`);
@@ -236,12 +236,7 @@ export default class Handbrake {
 
         // Calculate midpoint quality
         const midQuality = Math.round((this.binary.min + this.binary.max) / 2);
-        // set custom if available
-        if (customStartQuality) {
-            this.options.quality = customStartQuality;
-        } else {
-            this.options.quality = midQuality;
-        }
+        this.options.quality = midQuality;
 
         // Test this quality by transcoding samples
         const mbMinAvg = await this.testQualityWithSamples(this.options.quality);
