@@ -1,5 +1,6 @@
 import { readdir, stat } from "fs/promises";
 import { basename, dirname, extname, join, resolve } from "path";
+import { logs } from "./LogsClass";
 
 export async function fileExists(path: string): Promise<boolean> {
     try {
@@ -39,20 +40,9 @@ export async function isDir(path: string) {
     }
 }
 
-function isMediaFile(filePath: string): boolean {
+export function isMediaFile(filePath: string): boolean {
     const ext = extname(filePath).toLowerCase();
-    const mediaExtensions = [
-        ".mp4",
-        ".mkv",
-        ".avi",
-        ".mov",
-        ".wmv",
-        ".mp3",
-        ".wav",
-        ".flac",
-        ".ogg",
-        ".m4a",
-    ]; // Add more as needed
+    const mediaExtensions = [".mp4", ".mkv", ".avi", ".mov", ".wmv"]; // Add more as needed
     return mediaExtensions.includes(ext);
 }
 
