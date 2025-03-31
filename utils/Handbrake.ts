@@ -176,9 +176,6 @@ export default class Handbrake {
     async spawnTranscode(): Promise<void> {
         const options = { ...this.options };
 
-        // delete options["stop-at"];
-        // delete options["start-at"];
-
         await new Promise<void>((resolve, reject) => {
             logs.verbose(`Spawning transcode with quality: ${options.quality}`);
             const proc = hb.spawn(options);
@@ -211,7 +208,7 @@ export default class Handbrake {
 
             proc.on("complete", () => {
                 clearLine(); // Clear the final progress line
-                logs.verbose("Transcoding complete. 🔥 with quality:", this.options.quality); // Final message on a new line
+                logs.verbose("Transcoding complete with quality:", this.options.quality, "🔥"); // Final message on a new line
                 resolve();
             });
 
