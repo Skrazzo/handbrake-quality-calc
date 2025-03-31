@@ -89,7 +89,7 @@
       "PictureWidth" : 1920,
       "PresetDescription" : "",
       "PresetDisabled" : false,
-      "PresetName" : "hardware accelarated preset",
+      "PresetName" : "1080 265 12mb\/min",
       "SubtitleAddCC" : false,
       "SubtitleAddForeignAudioSearch" : true,
       "SubtitleAddForeignAudioSubtitle" : false,
@@ -99,7 +99,7 @@
       "SubtitleLanguageList" : [
         "any"
       ],
-      "SubtitleTrackSelectionBehavior" : "none",
+      "SubtitleTrackSelectionBehavior" : "all",
       "Type" : 1,
       "UsesPictureFilters" : true,
       "VideoAvgBitrate" : 6000,
@@ -115,7 +115,7 @@
       "VideoPreset" : "quality",
       "VideoProfile" : "main",
       "VideoQSVDecode" : false,
-      "VideoQualitySlider" : 21,
+      "VideoQualitySlider" : 19,
       "VideoQualityType" : 2,
       "VideoScaler" : "swscale",
       "VideoTune" : "",

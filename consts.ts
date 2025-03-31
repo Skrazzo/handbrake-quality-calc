@@ -4,8 +4,8 @@ import { join } from "path";
 export const OUTPUT_DIR = "/Users/skrazzo/Desktop/transcode-output";
 export const CONVERT_TO = ".mp4";
 export const RANGE = {
-    min: 9.5,
-    max: 11,
+    min: 11,
+    max: 12.5,
 };
 export const PRESET_FILE = join(__dirname, "preset.json");
 
@@ -16,7 +16,7 @@ export const SPLITS = 5;
 
 // Binary search
 // export const BINARY_QUALITY_RANGE = [20, 60];
-export const BINARY_QUALITY_RANGE = [10, 60];
+export const BINARY_QUALITY_RANGE = [30, 90];
 export const MAX_ITERATIONS = 8;
 // For windows or mac it could be inverted
 // For example, if mb/min needs to go down, but it goes up, then its most likely inverted
