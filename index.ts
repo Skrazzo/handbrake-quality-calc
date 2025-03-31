@@ -76,8 +76,14 @@ export async function processFiles(args: ProcessArguments) {
                 logs.err("Creating output directory", error as Error);
             }
 
-            logs.info(`Input file: ${inputFile.path.replace(path, "")}`);
-            logs.info(`Output file: ${outputFile.path.replace(outputDir, "")}`);
+            const inputPathShortened = inputFile.path.replace(path, "");
+            const outputPathShortened = outputFile.path.replace(outputDir, "");
+            logs.info(
+                `Input file: ${inputPathShortened ? inputPathShortened : basename(inputFile.path)}`
+            );
+            logs.info(
+                `Output file: ${outputPathShortened ? outputPathShortened : basename(outputFile.path)}`
+            );
 
             const hb = new Handbrake();
             await hb.init(inputFile, outputFile, {
@@ -105,7 +111,7 @@ export async function processFiles(args: ProcessArguments) {
 
             // After finding quality, encode video
             try {
-                await hb.spawnTranscode({});
+                await hb.spawnTranscode();
             } catch (error) {
                 logs.err(`Transcoding ${outputFile.path}`, error as Error);
             }
@@ -113,6 +119,7 @@ export async function processFiles(args: ProcessArguments) {
 
         // Go through each subtitle and copy it to the destination folder
         const subtitles = await getSubtitlesFiles(path);
+
         for (const sub of subtitles) {
             const destinationPath = join(outputDir, getDestinationFolderName(sub), basename(sub));
             // Do not overwrite subtitles, unless overwrite enabled
