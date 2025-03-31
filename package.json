@@ -3,6 +3,10 @@
     "module": "index.ts",
     "type": "module",
     "private": true,
+    "scripts": {
+        "info": "bun run index.ts info",
+        "process": "bun run index.ts process"
+    },
     "devDependencies": {
         "@types/bun": "latest",
         "@types/ffprobe": "^1.1.8",
