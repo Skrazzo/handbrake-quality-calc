@@ -138,6 +138,7 @@ export default class Handbrake {
             preset: preset.PresetList[0].PresetName,
             "preset-import-file": presetPath,
             quality: options.quality || presetQuality,
+
             ...customOptions,
         };
 
@@ -160,6 +161,7 @@ export default class Handbrake {
                 output: output.path,
                 "start-at": `seconds:${Math.round(from)}`,
                 "stop-at": `seconds:${Math.round(seconds)}`,
+                subtitle: "none",
             })
         );
 
@@ -171,16 +173,13 @@ export default class Handbrake {
         return await output.info();
     }
 
-    async spawnTranscode({ all = false }): Promise<void> {
+    async spawnTranscode(): Promise<void> {
         const options = { ...this.options };
 
-        if (all) {
-            delete options["stop-at"];
-            delete options["start-at"];
-        }
-
         await new Promise<void>((resolve, reject) => {
+            logs.verbose(`Spawning transcode with quality: ${options.quality}`);
             const proc = hb.spawn(options);
+
             let lastOutput = ""; // Keep track of the last output
 
             proc.on("error", (error) => {
@@ -209,7 +208,7 @@ export default class Handbrake {
 
             proc.on("complete", () => {
                 clearLine(); // Clear the final progress line
-                logs.verbose("Transcoding complete. 🔥"); // Final message on a new line
+                logs.verbose("Transcoding complete with quality:", this.options.quality, "🔥"); // Final message on a new line
                 resolve();
             });
 

@@ -55,7 +55,10 @@ export function isSubtitleFile(filePath: string): boolean {
 export async function getMoviesFiles(path: string): Promise<string[]> {
     // Incase only file is given
     if (!(await isDir(path))) {
-        return [resolve(path)];
+        if (isMediaFile(path)) {
+            return [resolve(path)];
+        }
+        return [];
     }
 
     let files = await getFiles(path);
@@ -67,7 +70,10 @@ export async function getMoviesFiles(path: string): Promise<string[]> {
 export async function getSubtitlesFiles(path: string): Promise<string[]> {
     // Incase only file is given
     if (!(await isDir(path))) {
-        return [resolve(path)];
+        if (isSubtitleFile(path)) {
+            return [resolve(path)];
+        }
+        return [];
     }
 
     let files = await getFiles(path);
