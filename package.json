@@ -5,7 +5,11 @@
     "private": true,
     "scripts": {
         "info": "bun run index.ts info",
-        "process": "bun run index.ts process"
+        "process": "bun run index.ts process",
+        "help": "bun run index.ts help",
+        "extract": "bun run index.ts extract",
+        "mkv-subs": "bun run index.ts mkv-subs",
+        "sort": "bun run index.ts sort"
     },
     "devDependencies": {
         "@types/bun": "latest",
