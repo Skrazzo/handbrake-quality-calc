@@ -11,6 +11,7 @@ interface Track {
 }
 
 function sanitizeFilename(name: string) {
+    // ... (keep this function as is)
     return name
         .replace(/[<>:"\/\\|?*\x00-\x1F]/g, "_") // Replace illegal chars with underscore
         .replace(/\s+/g, " ") // Normalize whitespace
@@ -20,6 +21,7 @@ function sanitizeFilename(name: string) {
 }
 
 function getSubtitleExtension(codec: string) {
+    // ... (keep this function as is)
     switch (codec) {
         case "S_TEXT/ASS":
         case "S_TEXT/SSA":
@@ -47,7 +49,7 @@ function getSubtitleExtension(codec: string) {
     }
 }
 
-// english, japanese, russian, latvian, signs & songs, undefined
+// ... (keep languageCodes as is)
 const languageCodes = [
     "en",
     "eng",
@@ -68,8 +70,11 @@ const languageCodes = [
 export const exportSubtitlesWithMkvTool = async (destinationDir: string) => {
     const files = await readdir(destinationDir, { recursive: true });
 
-    files.forEach(async (file) => {
-        if (!file.endsWith(".mkv")) return;
+    // --- CHANGE IS HERE ---
+    // Use a for...of loop instead of forEach
+    for (const file of files) {
+        if (!file.endsWith(".mkv")) continue; // Use continue to skip non-mkv files
+
         const fullPath = resolve(destinationDir, file);
         const fileDir = dirname(fullPath);
 
@@ -78,7 +83,7 @@ export const exportSubtitlesWithMkvTool = async (destinationDir: string) => {
         let subtitleTracks: Array<Track> = [];
 
         // get subtitle info from file
-        logs.info(`Exporting subtitles for ${file}`);
+        logs.info(`Processing file: ${file}`); // Changed log message slightly
         for await (const line of $`mkvinfo "${fullPath}"`.lines()) {
             const trimmedLine = line.trim();
             // Start new track
@@ -124,21 +129,35 @@ export const exportSubtitlesWithMkvTool = async (destinationDir: string) => {
         }
 
         // create subtitle filenames & extract subtitles
-        for (const track of subtitleTracks) {
-            const extension = getSubtitleExtension(track.codec as string);
-            const name = sanitizeFilename(track.name || `Track${(track.id as number).toString()}`);
+        if (subtitleTracks.length > 0) {
+            logs.info(`Found ${subtitleTracks.length} subtitle track(s) for ${file}`);
+            for (const track of subtitleTracks) {
+                const extension = getSubtitleExtension(track.codec as string);
+                const name = sanitizeFilename(
+                    track.name || `Track${(track.id as number).toString()}`
+                );
 
-            // Extract just the base name without the extension
-            const baseFileName = file
-                .replace(/\.mkv$/i, "")
-                .split("/")
-                .pop()!;
+                // Extract just the base name without the extension
+                const baseFileName = file
+                    .replace(/\.mkv$/i, "")
+                    .split("/")
+                    .pop()!;
 
-            const outputFile = `${baseFileName}.${name}.${track.language}.${extension}`;
-            const outputPath = resolve(fileDir, outputFile);
+                const outputFile = `${baseFileName}.${name}.${track.language}.${extension}`;
+                const outputPath = resolve(fileDir, outputFile);
 
-            // extract subtitles
-            await $`mkvextract tracks ${fullPath} ${track.id}:"${outputPath}"`;
+                // extract subtitles
+                logs.info(`Extracting track ${track.id} to ${outputFile}`);
+                // This await will now pause the outer for...of loop
+                await $`mkvextract tracks "${fullPath}" ${track.id}:"${outputPath}"`;
+                logs.info(`Finished extracting track ${track.id} for ${file}`);
+            }
+        } else {
+            logs.info(`No suitable subtitle tracks found for ${file}`);
         }
-    });
+        logs.info(`Finished processing file: ${file}\n---`); // Added separator log
+    }
+    // --- END OF CHANGE ---
+
+    logs.info("All files processed."); // Log when everything is done
 };

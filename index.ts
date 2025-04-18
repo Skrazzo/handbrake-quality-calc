@@ -121,6 +121,9 @@ export async function processFiles(args: ProcessArguments) {
             // After finding quality, encode video
             try {
                 await hb.spawnTranscode();
+                // After transcode is done, output transcoded files mb min size
+                const outputInfo = await outputFile.info();
+                logs.info(`${basename(outputFile.path)} -> ${outputInfo.mbMin} MB/min`);
             } catch (error) {
                 logs.err(`Transcoding ${outputFile.path}`, error as Error);
             }
