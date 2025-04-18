@@ -132,7 +132,7 @@ export async function processFiles(args: ProcessArguments) {
         for (const sub of subtitles) {
             const destinationPath = join(outputDir, getDestinationFolderName(sub), basename(sub));
             // Do not overwrite subtitles, unless overwrite enabled
-            if ((await fileExists(sub)) && !args.overwrite) {
+            if ((await fileExists(destinationPath)) && !args.overwrite) {
                 logs.verbose(`Skip copy of ${sub.replace(path, "")}`);
                 continue;
             }
