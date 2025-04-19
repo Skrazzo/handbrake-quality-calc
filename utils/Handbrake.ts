@@ -294,6 +294,7 @@ export default class Handbrake {
             await tmpFiles[i].delete();
         }
 
-        return totalMBMin / this.splitPieces; // Return average MB/min
+        // return totalMBMin / this.splitPieces; // Return average MB/min
+        return (totalMBMin/this.splitPieces) + 0.3;
     }
 }
