@@ -40,21 +40,36 @@ export async function processFiles(args: ProcessArguments) {
     const convertExt = CONVERT_TO;
     if (!convertExt) throw new Error("CONVERT_TO cannot be empty");
 
+    // If writeTo is set, we check for only one file (we need to check 2 times for this)
+    if (args.writeTo && args.files.length !== 1) {
+        logs.err("writeTo is only supported for single file transcode");
+        process.exit(1);
+    }
+
     // Transcode media files
     for (const path of args.files) {
         // Check if path is folder
         const files = await getMoviesFiles(path);
+
+        // If writeTo is set, we check for only one file
+        if (args.writeTo && files.length !== 1) {
+            logs.err("writeTo is only supported for single file transcode");
+            process.exit(1);
+        }
 
         // Go through each file, get best quality, and transcode it
         for (const file of files) {
             // Define input and output file
             const inputFile = new VideoFile(file);
             const outputFile = new VideoFile(
-                join(
-                    outputDir,
-                    getDestinationFolderName(file),
-                    basename(file).replace(extname(file), convertExt)
-                )
+                // If writeTo is set we are transcoding directly to a file
+                args.writeTo
+                    ? args.writeTo
+                    : join(
+                          outputDir,
+                          getDestinationFolderName(file),
+                          basename(file).replace(extname(file), convertExt)
+                      )
             );
 
             // Check for tmp file

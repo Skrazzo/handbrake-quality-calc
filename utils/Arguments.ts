@@ -9,6 +9,7 @@ export interface ProcessArguments {
     overwrite?: boolean;
     output: string;
     quality: number | undefined;
+    writeTo: string | undefined;
 }
 
 export interface FilesArguments {
@@ -72,6 +73,12 @@ export function loadArguments() {
                         describe: "Set started default quality",
                         type: "number",
                         default: undefined,
+                    })
+                    .option("writeTo", {
+                        alias: "w",
+                        describe: "Write to a file (Only works with single file transcode)",
+                        type: "string",
+                        default: undefined,
                     });
             },
             (argv) => {
@@ -80,6 +87,10 @@ export function loadArguments() {
 
                 if (args.overwrite) {
                     logs.info("Overwrite is enabled");
+                }
+
+                if (args.writeTo) {
+                    logs.info("Write to file is enabled (Only for single file transcode)");
                 }
 
                 processFiles(args);

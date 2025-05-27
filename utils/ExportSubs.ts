@@ -1,5 +1,5 @@
 import { $ } from "bun";
-import { readdir } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { logs } from "./LogsClass";
 
@@ -54,21 +54,33 @@ const languageCodes = [
     "en",
     "eng",
     "eng",
-    "ja",
-    "jpn",
-    "jpn",
-    "ru",
-    "rus",
-    "rus",
-    "lv",
-    "lav",
-    "lav",
-    "zxx",
-    "und",
+    // "ja",
+    // "jpn",
+    // "jpn",
+    // "ru",
+    // "rus",
+    // "rus",
+    // "lv",
+    // "lav",
+    // "lav",
+    // "zxx",
+    // "und",
 ];
 
 export const exportSubtitlesWithMkvTool = async (destinationDir: string) => {
-    const files = await readdir(destinationDir, { recursive: true });
+    const fileInfo = await stat(destinationDir);
+
+    // Handle single files too
+    let files: string[] = [];
+    if (!fileInfo.isDirectory()) {
+        logs.info(`Getting mkv subs from "${destinationDir}" file`);
+
+        // Insert single file into array
+        files = [destinationDir];
+    } else {
+        // Scan directory for mkv files
+        files = await readdir(destinationDir, { recursive: true });
+    }
 
     // --- CHANGE IS HERE ---
     // Use a for...of loop instead of forEach
