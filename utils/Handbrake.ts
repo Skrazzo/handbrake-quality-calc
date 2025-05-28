@@ -8,7 +8,7 @@ import { logs } from "./LogsClass";
 import { randomUUIDv7 } from "bun";
 import { round } from "./round";
 import { Writable } from "stream"; // Make sure to import this
-import { INVERTED_SEARCHING } from "../consts";
+import { INVERTED_SEARCHING, RANGE_OF_ERROR } from "../consts";
 
 interface HBClassOptions {
     preset: string;
@@ -295,6 +295,6 @@ export default class Handbrake {
         }
 
         // return totalMBMin / this.splitPieces; // Return average MB/min
-        return totalMBMin / this.splitPieces + 0.3;
+        return totalMBMin / this.splitPieces + RANGE_OF_ERROR;
     }
 }

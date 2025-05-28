@@ -21,3 +21,8 @@ export const MAX_ITERATIONS = 6;
 // For windows or mac it could be inverted
 // For example, if mb/min needs to go down, but it goes up, then its most likely inverted
 export const INVERTED_SEARCHING: boolean = true;
+// The range of error is added on file MB/min size when trying to predict the final
+// from sample files before transcoding. How its done basically
+// return totalMBMin / this.splitPieces + 0.3;
+// So after all split pieces were transcoded, we get average MB/min and add RANGE_OF_ERROR, in this example its 0.3
+export const RANGE_OF_ERROR: number = 0.5; // Has to be in MB/min format

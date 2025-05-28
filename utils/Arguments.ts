@@ -10,6 +10,7 @@ export interface ProcessArguments {
     output: string;
     quality: number | undefined;
     writeTo: string | undefined;
+    removeSubtitles?: boolean;
 }
 
 export interface FilesArguments {
@@ -79,6 +80,12 @@ export function loadArguments() {
                         describe: "Write to a file (Only works with single file transcode)",
                         type: "string",
                         default: undefined,
+                    })
+                    .option("removeSubtitles", {
+                        alias: "rs",
+                        describe: "Removes any subtitles inside of the media file",
+                        type: "boolean",
+                        default: false,
                     });
             },
             (argv) => {
@@ -91,6 +98,10 @@ export function loadArguments() {
 
                 if (args.writeTo) {
                     logs.info("Write to file is enabled (Only for single file transcode)");
+                }
+
+                if (args.removeSubtitles) {
+                    logs.info("Removing subtitles is enabled");
                 }
 
                 processFiles(args);

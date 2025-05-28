@@ -29,10 +29,18 @@ import { logs } from "./utils/LogsClass";
 import { tryCatch } from "./utils/tryCatch";
 import { getFolderSize, formatBytes } from "./utils/GetSize";
 import { exportSubtitlesWithMkvTool } from "./utils/ExportSubs";
+import { generatePresetWithNoSubtitles } from "./utils/RemoveSubsPreset";
+import { unlink } from "fs/promises";
 
 loadArguments();
 
 export async function processFiles(args: ProcessArguments) {
+    // If remove subs is enabled we need to modify preset file
+    const noSubtitlePresetPath = join(__dirname, "no-sub-preset.json");
+    if (args.removeSubtitles) {
+        await generatePresetWithNoSubtitles(noSubtitlePresetPath);
+    }
+
     // Get output directory
     const outputDir = args.output;
     if (!outputDir) throw new Error("OUTPUT_DIR cannot be empty");
@@ -111,7 +119,7 @@ export async function processFiles(args: ProcessArguments) {
 
             const hb = new Handbrake();
             await hb.init(inputFile, outputFile, {
-                preset: PRESET_FILE,
+                preset: args.removeSubtitles ? noSubtitlePresetPath : PRESET_FILE,
                 seconds: SECONDS,
                 range: { ...RANGE }, // Copy variable fully, because otherwise it will be changed,
                 splitPieces: SPLITS,
@@ -165,6 +173,12 @@ export async function processFiles(args: ProcessArguments) {
             } else {
                 logs.verbose(`Copied ${sub.replace(path, "")} to destination folder`);
             }
+        }
+
+        // Delete temporary subtitle file
+        if (args.removeSubtitles) {
+            await unlink(noSubtitlePresetPath);
+            logs.info("Removed temporary no subtitle preset file");
         }
     }
 }
