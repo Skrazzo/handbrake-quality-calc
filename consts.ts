@@ -4,8 +4,8 @@ import { join } from "path";
 export const OUTPUT_DIR = "/Users/skrazzo/Desktop/transcode-output";
 export const CONVERT_TO = ".mp4";
 export const RANGE = {
-    min: 11,
-    max: 12.5,
+    min: 12,
+    max: 14.5,
 };
 export const PRESET_FILE = join(__dirname, "preset.json");
 
@@ -17,7 +17,19 @@ export const SPLITS = 7;
 // Binary search
 // export const BINARY_QUALITY_RANGE = [20, 60];
 export const BINARY_QUALITY_RANGE = [20, 70];
+
+// Quality search
 export const MAX_ITERATIONS = 6;
+// Configurable thresholds and increments, easy to tweak, ya heard?
+// if diff > threshold = increment
+export const INCREMENT_CONFIG = [
+    { threshold: 10, increment: 10 },
+    { threshold: 5, increment: 7 },
+    { threshold: 3, increment: 5 },
+    { threshold: 1, increment: 3 },
+];
+export const DEFAULT_INCREMENT = 1; // Minimum jump is 1, always
+
 // For windows or mac it could be inverted
 // For example, if mb/min needs to go down, but it goes up, then its most likely inverted
 export const INVERTED_SEARCHING: boolean = true;

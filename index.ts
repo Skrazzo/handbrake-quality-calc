@@ -128,6 +128,7 @@ export async function processFiles(args: ProcessArguments) {
                     max: BINARY_QUALITY_RANGE[1],
                     iterations: { max: MAX_ITERATIONS, current: 1 },
                 },
+                quality: args.quality,
             });
 
             // Find best quality factor

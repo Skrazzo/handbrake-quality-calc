@@ -9,6 +9,7 @@ import { randomUUIDv7 } from "bun";
 import { round } from "./round";
 import { Writable } from "stream"; // Make sure to import this
 import { INVERTED_SEARCHING, RANGE_OF_ERROR } from "../consts";
+import calculateIncrement from "./CalculateQualityIncrement";
 
 interface HBClassOptions {
     preset: string;
@@ -128,8 +129,13 @@ export default class Handbrake {
             // Set preset quality to a variable, if options isn't specified
             const tmp = preset.PresetList[0].VideoQualitySlider;
             if (tmp) {
+                logs.verbose(`Using preset quality: ${tmp}`);
                 presetQuality = tmp;
             }
+        } else {
+            // Take quality from options
+            logs.verbose(`Using provided start quality: ${options.quality}`);
+            presetQuality = options.quality;
         }
 
         this.options = {
@@ -137,7 +143,7 @@ export default class Handbrake {
             output: output.path,
             preset: preset.PresetList[0].PresetName,
             "preset-import-file": presetPath,
-            quality: options.quality || presetQuality,
+            quality: presetQuality,
 
             ...customOptions,
         };
@@ -224,6 +230,64 @@ export default class Handbrake {
     async findQuality(): Promise<HandbrakeOptions> {
         this.checkInit();
 
+        if (!this.options.quality) {
+            throw new Error("Quality is undefined, how tf did that happen?");
+        }
+
+        // Calculate average
+        const mbMinAvg = await this.testQualityWithSamples();
+        logs.info(`${this.options.quality} quality average: ${round(mbMinAvg, 2)} MB/min`);
+
+        // Check for mbMinAvg, and compare it to the range
+        if (mbMinAvg > this.range.min && mbMinAvg < this.range.max) {
+            // Good range, return
+            return this.options;
+        }
+
+        // Too little, decrease quality (increase size)
+        if (mbMinAvg <= this.range.min) {
+            if (!this.options.quality)
+                throw new Error(
+                    `Quality is undefined ("${this.options.quality}") how tf did that happen?`
+                );
+
+            // If quality is too little, we increase it
+            const increment = calculateIncrement(mbMinAvg, this.range.min);
+            if (INVERTED_SEARCHING) {
+                this.options.quality += increment;
+            } else {
+                this.options.quality -= increment;
+            }
+
+            // Recall yourself
+            return await this.findQuality();
+        }
+
+        // Too much, increase quality (decrease size)
+        if (mbMinAvg >= this.range.max) {
+            if (!this.options.quality)
+                throw new Error(
+                    `Quality is undefined ("${this.options.quality}") how tf did that happen?`
+                );
+
+            // If quality is too big, we decrease it
+            const increment = calculateIncrement(mbMinAvg, this.range.max);
+            if (INVERTED_SEARCHING) {
+                this.options.quality -= increment;
+            } else {
+                this.options.quality += increment;
+            }
+
+            // Recall yourself
+            return await this.findQuality();
+        }
+
+        return this.options;
+    }
+
+    async binarySearchQuality(): Promise<HandbrakeOptions> {
+        this.checkInit();
+
         logs.info(`Performing binary search for: ${basename(this.input.path)}`);
         if (!this.binary) throw new Error("Binary is undefined");
 
@@ -239,7 +303,7 @@ export default class Handbrake {
         this.options.quality = midQuality;
 
         // Test this quality by transcoding samples
-        const mbMinAvg = await this.testQualityWithSamples(this.options.quality);
+        const mbMinAvg = await this.testQualityWithSamples();
         logs.info(`Quality ${this.options.quality} → ${round(mbMinAvg, 3)} MB/min`);
 
         // Check if we hit the target range
@@ -261,8 +325,9 @@ export default class Handbrake {
     }
 
     // Helper: Test a specific quality by transcoding samples
-    private async testQualityWithSamples(quality: number): Promise<number> {
+    private async testQualityWithSamples(): Promise<number> {
         if (!this.splitPieces) throw new Error("Split pieces not set");
+        if (!this.options.quality) throw new Error("options.quality is undefined");
 
         const tmpFiles: VideoFile[] = [];
         for (let i = 0; i < this.splitPieces; i++) {
