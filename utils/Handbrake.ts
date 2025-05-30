@@ -8,7 +8,7 @@ import { logs } from "./LogsClass";
 import { randomUUIDv7 } from "bun";
 import { round } from "./round";
 import { Writable } from "stream"; // Make sure to import this
-import { INVERTED_SEARCHING, RANGE_OF_ERROR } from "../consts";
+import { INVERTED_SEARCHING, RANGE_OF_ERROR, MAX_ITERATIONS } from "../consts";
 import calculateIncrement from "./CalculateQualityIncrement";
 
 interface HBClassOptions {
@@ -64,6 +64,8 @@ export default class Handbrake {
     seconds: number = 30;
     // @ts-ignore
     binary: HBClassOptions["binary"] = { min: 1, max: 100, iterations: { max: 20, current: 1 } };
+    // @ts-ignore
+    searchIterations: number = 0;
 
     initiated: boolean = false;
 
@@ -109,7 +111,7 @@ export default class Handbrake {
         // If file is smaller than range max, modify min and max range for transcoding
         if (info.mbMin < this.range.max) {
             this.range.max = info.mbMin;
-            this.range.min = this.range.max - 1;
+            this.range.min = this.range.max - 2;
             logs.warn(
                 `${basename(video.path)} is ${info.mbMin} MB/min, less than range max MB/min. Reduced range to ${this.range.min} - ${this.range.max} MB/min`
             );
@@ -234,6 +236,10 @@ export default class Handbrake {
             throw new Error("Quality is undefined, how tf did that happen?");
         }
 
+        if (this.searchIterations >= MAX_ITERATIONS) {
+            return this.options;
+        }
+
         // Calculate average
         const mbMinAvg = await this.testQualityWithSamples();
         logs.info(`${this.options.quality} quality average: ${round(mbMinAvg, 2)} MB/min`);
@@ -279,6 +285,7 @@ export default class Handbrake {
             }
 
             // Recall yourself
+            this.searchIterations += 1;
             return await this.findQuality();
         }
 
