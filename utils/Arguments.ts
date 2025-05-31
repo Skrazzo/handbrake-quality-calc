@@ -17,7 +17,9 @@ export interface FilesArguments {
     files: string[];
 }
 
-export interface InfoArguments extends FilesArguments {}
+export interface InfoArguments extends FilesArguments {
+    json: boolean;
+}
 
 export interface ExtractArguments extends FilesArguments {}
 
@@ -37,6 +39,12 @@ export function loadArguments() {
                     describe: "List of files to process",
                     type: "array",
                     demandOption: true,
+                });
+                yargs.option("json", {
+                    alias: "J",
+                    describe: "Output in json format",
+                    type: "boolean",
+                    default: false,
                 });
             },
             (argv) => {

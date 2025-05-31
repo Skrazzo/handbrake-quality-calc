@@ -185,6 +185,13 @@ export async function processFiles(args: ProcessArguments) {
 }
 
 export async function displayFileInfo(args: InfoArguments) {
+    interface Info {
+        file: string;
+        mbMin: number;
+    }
+
+    const output: Info[] = [];
+
     for (const path of args.files) {
         // Check if path is folder
         const files = await getMoviesFiles(path);
@@ -196,7 +203,7 @@ export async function displayFileInfo(args: InfoArguments) {
 
             // For better readability notify about dir change
             const shortenedDir = video.dir.replace(path, "");
-            if (previousDir !== shortenedDir) {
+            if (previousDir !== shortenedDir && !args.json) {
                 logs.verbose(!shortenedDir ? video.dir : shortenedDir);
                 previousDir = shortenedDir;
             }
@@ -211,11 +218,21 @@ export async function displayFileInfo(args: InfoArguments) {
 
             const logText = `${videoInfo.mbMin} MB/min -> ${shortenedPath}`;
             if (videoInfo.mbMin > RANGE.max) {
-                logs.err(logText);
+                if (!args.json) logs.err(logText);
             } else {
-                logs.info(logText);
+                if (!args.json) logs.info(logText);
             }
+
+            // Add to output
+            output.push({
+                file: videoInfo.path,
+                mbMin: videoInfo.mbMin,
+            });
         }
+    }
+
+    if (args.json) {
+        console.log(JSON.stringify(output, null));
     }
 }
 
