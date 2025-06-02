@@ -385,5 +385,3 @@ export async function extractSubs({ files }: SubsArguments) {
         await exportSubtitlesWithMkvTool(path);
     }
 }
-
-// Secret comment UwU
