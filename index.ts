@@ -150,6 +150,7 @@ export async function processFiles(args: ProcessArguments) {
                 logs.info(`${basename(outputFile.path)} -> ${outputInfo.mbMin} MB/min`);
             } catch (error) {
                 logs.err(`Transcoding ${outputFile.path}`, error as Error);
+                process.exit(1);
             }
         }
 
@@ -231,6 +232,7 @@ export async function displayFileInfo(args: InfoArguments) {
         }
     }
 
+    // Output json to console
     if (args.json) {
         console.log(JSON.stringify(output, null));
     }
